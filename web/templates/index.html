@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirSnitch Control Panel</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=24">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <h1>AirSnitch</h1>
+            <span class="subtitle">Wi-Fi Client Isolation Testing</span>
+        </div>
+        <div class="header-right">
+            <span id="nm-status" class="status-badge status-unknown">NM: ?</span>
+            <button class="btn btn-danger btn-sm" onclick="nmStop()" title="Stop NetworkManager for clean wireless testing">Stop NM</button>
+            <button class="btn btn-primary btn-sm" onclick="nmStart()" title="Re-enable NetworkManager">Start NM</button>
+        </div>
+    </header>
+
+    <nav>
+        <button class="nav-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="nav-btn" data-tab="terminal">Terminal</button>
+        <button class="nav-btn" data-tab="config">Configuration</button>
+        <button class="nav-btn" data-tab="logs">Logs</button>
+        <button class="nav-btn nav-wizard" onclick="wizShow()">Setup Wizard</button>
+    </nav>
+
+    <main>
+        <!-- Dashboard Tab -->
+        <section id="tab-dashboard" class="tab-content active">
+            <div class="grid">
+
+                <!-- Wireless Interfaces -->
+                <div class="card">
+                    <h2>Wireless Interfaces</h2>
+                    <div id="wireless-interfaces">
+                        <p class="muted">Loading...</p>
+                    </div>
+                    <div class="button-group" style="margin-top: 0.5rem;">
+                        <button class="btn btn-primary btn-sm" onclick="refreshInterfaces()">Refresh</button>
+                        <button class="btn btn-warning btn-sm" onclick="rfkillUnblock()">Unblock All (rfkill)</button>
+                    </div>
+                </div>
+
+                <!-- USB Devices -->
+                <div class="card">
+                    <h2>USB Devices</h2>
+                    <div id="usb-devices">
+                        <p class="muted">Loading...</p>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="refreshUSB()">Refresh</button>
+                </div>
+
+                <!-- Interface Mode -->
+                <div class="card">
+                    <h2>Interface Mode</h2>
+                    <p class="muted">Switch an interface to monitor or managed mode via airmon-ng.</p>
+                    <div class="interface-select">
+                        <div class="input-group">
+                            <label for="mode-iface">Interface</label>
+                            <input type="text" id="mode-iface" placeholder="e.g. wlan0" spellcheck="false">
+                        </div>
+                    </div>
+                    <div class="button-group" style="margin-top: 0.5rem;">
+                        <button class="btn btn-warning btn-sm" onclick="setMode('monitor')">Monitor Mode</button>
+                        <button class="btn btn-primary btn-sm" onclick="setMode('managed')">Managed Mode</button>
+                    </div>
+                    <div id="mode-output" class="output-area hidden" style="margin-top: 0.5rem;">
+                        <pre id="mode-output-text"></pre>
+                    </div>
+                </div>
+
+                <!-- Client Isolation Testing (Single NIC) -->
+                <div class="card full-width">
+                    <h2>Client Isolation Testing</h2>
+                    <p class="muted">Single adapter — connect to the target network, discover clients, test if isolation is enforced.</p>
+
+                    <div class="interface-select">
+                        <div class="input-group">
+                            <label for="pt-iface">Interface</label>
+                            <input type="text" id="pt-iface" placeholder="e.g. wlan0" spellcheck="false">
+                        </div>
+                        <div class="input-group">
+                            <label for="pt-connect-mode">Connect Mode</label>
+                            <select id="pt-connect-mode" style="background:#161b22; border:1px solid #30363d; border-radius:4px; color:#e6edf3; padding:0.35rem 0.5rem; font-size:0.8rem;">
+                                <option value="standard">Standard (stock wpa_supplicant)</option>
+                                <option value="airsnitch">AirSnitch (modified wpa_supplicant)</option>
+                            </select>
+                        </div>
+                        <div class="button-group" style="align-self:flex-end; gap:0.4rem;">
+                            <button class="btn btn-success btn-sm" onclick="wifiShowConnect()">Scan &amp; Connect</button>
+                            <button class="btn btn-danger btn-sm" onclick="ptDisconnect()">Disconnect</button>
+                            <button class="btn btn-primary btn-sm" onclick="ptNetInfo()">Network Info</button>
+                        </div>
+                    </div>
+                    <p class="muted" style="margin-top:-0.5rem;">Stop NetworkManager first. <strong>Standard</strong> = normal WiFi client. <strong>AirSnitch</strong> = modified wpa_supplicant for isolation bypass testing.</p>
+
+                    <div id="pt-netinfo" class="hidden">
+                        <div class="pt-info-grid">
+                            <div class="pt-info-item"><span class="pt-label">SSID</span><span id="pt-ssid" class="pt-value">—</span></div>
+                            <div class="pt-info-item"><span class="pt-label">IP</span><span id="pt-ip" class="pt-value">—</span></div>
+                            <div class="pt-info-item"><span class="pt-label">Gateway</span><span id="pt-gw" class="pt-value">—</span></div>
+                            <div class="pt-info-item"><span class="pt-label">Subnet</span><span id="pt-subnet" class="pt-value">—</span></div>
+                            <div class="pt-info-item"><span class="pt-label">Mode</span><span id="pt-mode" class="pt-value">—</span></div>
+                        </div>
+                    </div>
+
+                    <div class="button-group" style="margin: 0.75rem 0;">
+                        <button class="btn btn-warning" onclick="ptDiscover()">Discover Clients (ARP Scan)</button>
+                    </div>
+
+                    <div id="pt-clients" class="hidden">
+                        <table class="pt-table">
+                            <thead><tr><th>IP</th><th>MAC</th><th>Vendor</th><th>Test</th></tr></thead>
+                            <tbody id="pt-clients-body"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="pt-target-section" class="hidden" style="margin-top: 0.75rem;">
+                        <div class="interface-select">
+                            <div class="input-group">
+                                <label for="pt-target">Target IP</label>
+                                <input type="text" id="pt-target" placeholder="Select from table or type IP" spellcheck="false">
+                            </div>
+                        </div>
+                        <h3 style="color:#8b949e; margin:0 0 0.5rem 0; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Basic Isolation Tests</h3>
+                        <div class="command-grid">
+                            <div class="command-item">
+                                <h3>Ping Test</h3>
+                                <p>ICMP reachability (Layer 3)</p>
+                                <button class="btn btn-primary" onclick="ptPing()">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>ARP Check</h3>
+                                <p>ARP reachability (Layer 2)</p>
+                                <button class="btn btn-primary" onclick="ptArpCheck()">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Port Scan</h3>
+                                <p>nmap top 100 ports (Layer 4)</p>
+                                <button class="btn btn-warning" onclick="ptPortScan()">Run</button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div id="pt-advanced-section" class="hidden" style="margin-top: 1rem;">
+                        <h3 style="color:#8b949e; margin:0 0 0.5rem 0; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">Advanced Attack Tests</h3>
+                        <div class="command-grid">
+                            <div class="command-item">
+                                <h3>ARP Spoof</h3>
+                                <p>MitM via ARP poisoning (needs target + gateway)</p>
+                                <button class="btn btn-danger" onclick="ptArpSpoof()">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Gateway Probe</h3>
+                                <p>Router admin ports + internet access</p>
+                                <button class="btn btn-warning" onclick="ptGwProbe()">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Cross-VLAN Probe</h3>
+                                <p>Inter-VLAN routing check</p>
+                                <button class="btn btn-warning" onclick="ptVlanProbe()">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>DHCP Recon</h3>
+                                <p>Enumerate DHCP server info</p>
+                                <button class="btn btn-primary" onclick="ptDhcpInfo()">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Subnet Port Scan</h3>
+                                <p>Scan hosts on a subnet (auto-filled or manual)</p>
+                                <input type="text" id="pt-subnet-input" placeholder="e.g. 192.168.1.0/24" spellcheck="false"
+                                       style="width:100%; margin-bottom:0.4rem; background:#161b22; border:1px solid #30363d; border-radius:4px; color:#e6edf3; padding:0.3rem 0.4rem; font-size:0.8rem; box-sizing:border-box;">
+                                <select id="pt-subnet-scantype" style="width:100%; margin-bottom:0.5rem; background:#161b22; border:1px solid #30363d; border-radius:4px; color:#e6edf3; padding:0.3rem 0.4rem; font-size:0.8rem;">
+                                    <option value="discovery">Host Discovery (ping sweep)</option>
+                                    <option value="quick" selected>Quick — top 20 open ports</option>
+                                    <option value="top100">Full — top 100 ports per host</option>
+                                </select>
+                                <button class="btn btn-warning" onclick="ptSubnetScan()">Scan Subnet</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="pt-bypass-section" class="hidden" style="margin-top: 1rem;">
+                        <h3 style="color:#f0883e; margin:0 0 0.5rem 0; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">
+                            AirSnitch Bypass Tests
+                            <span style="font-size:0.7rem; color:#8b949e; text-transform:none; letter-spacing:normal; margin-left:0.5rem;">
+                                modified wpa_supplicant frame injection &amp; GTK manipulation
+                            </span>
+                        </h3>
+                        <p class="muted" style="margin-bottom:0.75rem;">
+                            These tests use airsnitch.py with the modified wpa_supplicant to probe AP isolation
+                            at the 802.11 frame level. Each test injects real attack frames &mdash; if the AP is
+                            vulnerable, other clients on the network ARE affected.
+                        </p>
+
+                        <!-- GTK Info Panel -->
+                        <div style="border:1px solid #f0883e; border-radius:6px; padding:0.75rem; margin-bottom:1rem; background:#161b22;">
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <div>
+                                    <h4 style="color:#f0883e; margin:0; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em;">
+                                        Group Temporal Key (GTK)
+                                    </h4>
+                                    <p class="muted" style="margin:0.25rem 0 0 0; font-size:0.75rem;">
+                                        Shared by all clients on this BSS &mdash; enables broadcast frame injection
+                                    </p>
+                                </div>
+                                <button class="btn btn-warning" onclick="ptGtkInfo()" style="white-space:nowrap;">Extract GTK</button>
+                            </div>
+                            <div id="gtk-info-display"></div>
+                        </div>
+
+                        <!-- Bypass Detection Tests -->
+                        <div class="command-grid">
+                            <div class="command-item">
+                                <h3>GTK Shared Key</h3>
+                                <p>Verifies all clients share the same Group Temporal Key &mdash; precondition for GTK abuse attacks</p>
+                                <button class="btn btn-warning" onclick="ptBypassTest('--check-gtk-shared', 'GTK Shared Key Check')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>ARP Poisoning (C2C)</h3>
+                                <p>Sends spoofed ARP via frame injection to redirect victim traffic through the attacker</p>
+                                <button class="btn btn-danger" onclick="ptBypassTest('--c2c', 'Client-to-Client ARP Poisoning')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>IP-Layer Bypass</h3>
+                                <p>Bounces packets through the gateway to reach isolated clients at L3 &mdash; gateway is not subject to isolation</p>
+                                <button class="btn btn-danger" onclick="ptBypassTest('--c2c-ip', 'IP-Layer Gateway Bounce')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Port Steal (Downlink)</h3>
+                                <p>MAC spoofing to hijack the AP's forwarding table and intercept victim's downlink traffic</p>
+                                <button class="btn btn-danger" onclick="ptBypassTest('--c2c-port-steal', 'Downlink Port Stealing')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Port Steal (Uplink)</h3>
+                                <p>MAC spoofing to intercept victim's outbound traffic before it reaches the gateway</p>
+                                <button class="btn btn-danger" onclick="ptBypassTest('--c2c-port-steal-uplink', 'Uplink Port Stealing')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Broadcast Reflection</h3>
+                                <p>Tests if broadcast frames reach isolated clients &mdash; if vulnerable, enables mass ARP poisoning of all clients</p>
+                                <button class="btn btn-warning" onclick="ptBypassTest('--c2c-broadcast', 'Broadcast Reflection')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Ethernet Layer</h3>
+                                <p>Direct L2 Ethernet frame delivery between isolated clients via crafted 802.11 frames</p>
+                                <button class="btn btn-danger" onclick="ptBypassTest('--c2c-eth', 'Ethernet Frame Crafting')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>GTK Injection</h3>
+                                <p>Injects GTK-encrypted broadcast frames &mdash; bypasses AP forwarding logic entirely (radio-to-radio)</p>
+                                <button class="btn btn-danger" onclick="ptBypassTest('--c2c-gtk-inject', 'GTK Frame Injection')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Multicast (C2M)</h3>
+                                <p>Tests if multicast group traffic crosses isolation boundaries to reach other clients</p>
+                                <button class="btn btn-warning" onclick="ptBypassTest('--c2m', 'Client-to-Multicast')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Multicast IP (C2M-IP)</h3>
+                                <p>Tests IP-layer multicast delivery to isolated clients via crafted multicast frames</p>
+                                <button class="btn btn-warning" onclick="ptBypassTest('--c2m-ip', 'Client-to-Multicast IP')">Run</button>
+                            </div>
+                        </div>
+                        <div style="margin-top: 0.75rem;">
+                            <button class="btn btn-danger" onclick="ptBypassRunAll()" style="width:100%;">
+                                Run All Bypass Tests (sequential)
+                            </button>
+                        </div>
+
+                        <!-- Active Exploitation -->
+                        <div style="margin-top:1.25rem; border-top:1px solid #30363d; padding-top:1rem;">
+                            <h3 style="color:#f85149; margin:0 0 0.5rem 0; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em;">
+                                Active Exploitation
+                            </h3>
+                            <p class="muted" style="margin-bottom:0.75rem; font-size:0.8rem;">
+                                Run &ldquo;Broadcast Reflection&rdquo; first to verify this attack vector is viable.
+                                The attack enables IP forwarding and iptables MASQUERADE automatically.
+                            </p>
+                            <div class="command-grid" style="grid-template-columns: repeat(3, 1fr);">
+                                <div class="command-item">
+                                    <h3>1. Launch MITM</h3>
+                                    <p>Enables IP forwarding, iptables NAT, then sends broadcast ARP poison claiming to be the gateway</p>
+                                    <button class="btn btn-danger" onclick="ptArpPoison()">Launch Attack</button>
+                                </div>
+                                <div class="command-item">
+                                    <h3>2. Verify Capture</h3>
+                                    <p>Runs 10s tcpdump capture to check if traffic from other clients is being intercepted</p>
+                                    <button class="btn btn-warning" onclick="ptMitmVerify()">Verify Capture</button>
+                                </div>
+                                <div class="command-item">
+                                    <h3>3. Stop &amp; Cleanup</h3>
+                                    <p>Disables forwarding, removes iptables rule, sends corrective ARP to restore real gateway</p>
+                                    <button class="btn btn-secondary" onclick="ptMitmStop()">Stop Attack</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="pt-output" class="output-area hidden">
+                        <h3>Result</h3>
+                        <pre id="pt-output-text"></pre>
+                    </div>
+                </div>
+
+                <!-- AirSnitch Research (Dual NIC) -->
+                <div class="card full-width">
+                    <h2 class="section-toggle" onclick="toggleSection('airsnitch-advanced')">AirSnitch Research (Dual NIC) <span id="airsnitch-arrow" class="collapse-arrow">&#9654;</span></h2>
+                    <p class="muted">Requires two wireless adapters. Uses the AirSnitch research framework for advanced client isolation tests.</p>
+                    <div id="airsnitch-advanced" class="hidden">
+                        <div class="interface-select" style="margin-top: 0.75rem;">
+                            <div class="input-group">
+                                <label for="iface1">Interface 1 (victim)</label>
+                                <input type="text" id="iface1" placeholder="e.g. wlan0" spellcheck="false">
+                            </div>
+                            <div class="input-group">
+                                <label for="iface2">Interface 2 (attacker)</label>
+                                <input type="text" id="iface2" placeholder="e.g. wlan1" spellcheck="false">
+                            </div>
+                            <div class="input-group">
+                                <label for="extra-flags">Extra Flags</label>
+                                <select id="extra-flags" multiple>
+                                    <option value="--same-bss">--same-bss</option>
+                                    <option value="--other-bss">--other-bss</option>
+                                    <option value="--no-ssid-check">--no-ssid-check</option>
+                                    <option value="--ping">--ping</option>
+                                    <option value="--debug">--debug</option>
+                                    <option value="--same-id">--same-id</option>
+                                    <option value="--flip-id">--flip-id</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="command-grid">
+                            <div class="command-item">
+                                <h3>Check GTK Shared</h3>
+                                <p>Compare group keys between victim and attacker</p>
+                                <button class="btn btn-primary" onclick="runAirsnitch('--check-gtk-shared')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Client-to-Client IP</h3>
+                                <p>IP-layer isolation bypass via gateway bouncing</p>
+                                <button class="btn btn-primary" onclick="runAirsnitch('--c2c-ip')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Port Steal (Downlink)</h3>
+                                <p>Downlink traffic interception</p>
+                                <button class="btn btn-primary" onclick="runAirsnitch('--c2c-port-steal')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Port Steal (Uplink)</h3>
+                                <p>Uplink traffic interception</p>
+                                <button class="btn btn-primary" onclick="runAirsnitch('--c2c-port-steal-uplink')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Broadcast Reflection</h3>
+                                <p>Client-to-client broadcast reflection</p>
+                                <button class="btn btn-primary" onclick="runAirsnitch('--c2c-broadcast')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>Ethernet Layer</h3>
+                                <p>Client-to-client Ethernet layer traffic</p>
+                                <button class="btn btn-primary" onclick="runAirsnitch('--c2c-eth')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>ARP Poisoning</h3>
+                                <p>Client-to-client Ethernet ARP poisoning</p>
+                                <button class="btn btn-primary" onclick="runAirsnitch('--c2c')">Run</button>
+                            </div>
+                            <div class="command-item">
+                                <h3>GTK Inject</h3>
+                                <p>GTK-based frame injection</p>
+                                <button class="btn btn-primary" onclick="runAirsnitch('--c2c-gtk-inject')">Run</button>
+                            </div>
+                        </div>
+
+                        <div id="airsnitch-output" class="output-area hidden">
+                            <h3>Output</h3>
+                            <pre id="airsnitch-output-text"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Terminal Tab -->
+        <section id="tab-terminal" class="tab-content">
+            <div class="terminal-controls">
+                <button class="btn btn-success btn-sm" onclick="connectTerminal()">Connect</button>
+                <button class="btn btn-danger btn-sm" onclick="disconnectTerminal()">Disconnect</button>
+                <span id="terminal-status" class="muted">Disconnected</span>
+            </div>
+            <div id="terminal-container"></div>
+        </section>
+
+        <!-- Configuration Tab -->
+        <section id="tab-config" class="tab-content">
+            <div class="card full-width">
+                <h2>WPA Supplicant Configuration (client.conf)</h2>
+                <p class="muted">Configure the victim and attacker network connections used by AirSnitch.</p>
+                <textarea id="config-editor" spellcheck="false"></textarea>
+                <div class="button-group" style="margin-top: 1rem;">
+                    <button class="btn btn-success" onclick="saveConfig()">Save</button>
+                    <button class="btn btn-primary" onclick="loadConfig()">Reload</button>
+                    <button class="btn btn-warning" onclick="loadDefaultConfig()">Load Example</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Logs Tab -->
+        <section id="tab-logs" class="tab-content">
+            <div class="card full-width">
+                <h2>AirSnitch Logs</h2>
+                <div class="button-group" style="margin-bottom: 1rem;">
+                    <button class="btn btn-primary btn-sm" onclick="refreshLogs()">Refresh</button>
+                    <button class="btn btn-danger btn-sm" onclick="clearLogs()">Clear</button>
+                    <label style="display: inline-flex; align-items: center; gap: 0.5rem; color: #ccc;">
+                        <input type="checkbox" id="auto-scroll" checked> Auto-scroll
+                    </label>
+                </div>
+                <pre id="log-output" class="log-area"></pre>
+            </div>
+        </section>
+    </main>
+
+    <!-- ── Setup Wizard Modal ──────────────────────────────────────── -->
+    <div id="wizard-overlay" class="wizard-overlay hidden">
+        <div class="wizard-modal">
+            <div class="wizard-header">
+                <div class="wizard-title-row">
+                    <h2>AirSnitch Setup</h2>
+                    <button class="wizard-close" onclick="wizHide()" title="Close">&times;</button>
+                </div>
+                <div class="wizard-steps">
+                    <span class="step active" data-step="1">1. Target</span>
+                    <span class="step" data-step="2">2. Attacker</span>
+                    <span class="step" data-step="3">3. Review</span>
+                </div>
+            </div>
+
+            <!-- Step 1: Target / Victim Network -->
+            <div class="wizard-step active" id="wiz-step-1">
+                <h3>Target Network (Victim)</h3>
+                <p class="muted">The network whose client isolation you want to test.</p>
+
+                <div class="wiz-scan-row">
+                    <div class="input-group" style="flex:1;">
+                        <label for="wiz-scan-iface">Scan interface</label>
+                        <input type="text" id="wiz-scan-iface" placeholder="e.g. wlan0" spellcheck="false">
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="wizScanNetworks()" style="align-self:flex-end;">Scan Networks</button>
+                </div>
+                <div id="wiz-scan-results" class="hidden" style="margin: 0.5rem 0;">
+                    <select id="wiz-scan-list" size="5" style="width:100%;" onchange="wizSelectNetwork(this)"></select>
+                </div>
+
+                <div class="wiz-form">
+                    <div class="input-group">
+                        <label for="wiz-v-ssid">SSID</label>
+                        <input type="text" id="wiz-v-ssid" placeholder="Network name" spellcheck="false">
+                    </div>
+                    <div class="input-group">
+                        <label for="wiz-v-auth">Authentication</label>
+                        <select id="wiz-v-auth" onchange="wizAuthChanged('v')">
+                            <option value="WPA-PSK">WPA2-Personal (WPA-PSK)</option>
+                            <option value="SAE">WPA3-Personal (SAE)</option>
+                            <option value="WPA-EAP">WPA2/3-Enterprise (EAP)</option>
+                            <option value="NONE">Open (no security)</option>
+                        </select>
+                    </div>
+                    <div class="input-group wiz-cred" id="wiz-v-psk-group">
+                        <label for="wiz-v-psk">Password / PSK</label>
+                        <input type="text" id="wiz-v-psk" placeholder="Pre-shared key" spellcheck="false">
+                    </div>
+                    <div class="input-group wiz-cred hidden" id="wiz-v-eap-group">
+                        <label for="wiz-v-eap-method">EAP Method</label>
+                        <select id="wiz-v-eap-method">
+                            <option value="PEAP">PEAP</option>
+                            <option value="TLS">TLS</option>
+                            <option value="TTLS">TTLS</option>
+                        </select>
+                    </div>
+                    <div class="input-group wiz-cred hidden" id="wiz-v-identity-group">
+                        <label for="wiz-v-identity">Identity (username)</label>
+                        <input type="text" id="wiz-v-identity" placeholder="user@domain.com" spellcheck="false">
+                    </div>
+                    <div class="input-group wiz-cred hidden" id="wiz-v-eap-pass-group">
+                        <label for="wiz-v-eap-pass">EAP Password</label>
+                        <input type="text" id="wiz-v-eap-pass" placeholder="Enterprise password" spellcheck="false">
+                    </div>
+                    <div class="input-group">
+                        <label for="wiz-v-freq">Scan Frequency (optional)</label>
+                        <select id="wiz-v-freq">
+                            <option value="">Auto</option>
+                            <option value="2412">Ch 1 (2412 MHz)</option>
+                            <option value="2437">Ch 6 (2437 MHz)</option>
+                            <option value="2462">Ch 11 (2462 MHz)</option>
+                            <option value="5180">Ch 36 (5180 MHz)</option>
+                            <option value="5200">Ch 40 (5200 MHz)</option>
+                            <option value="5220">Ch 44 (5220 MHz)</option>
+                            <option value="5240">Ch 48 (5240 MHz)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="input-group" style="margin-top: 1rem;">
+                    <label>
+                        <input type="checkbox" id="wiz-same-network" checked onchange="wizSameNetworkChanged()">
+                        Attacker uses the same network &amp; credentials
+                    </label>
+                </div>
+
+                <div class="wizard-nav">
+                    <button class="btn btn-primary" onclick="wizNext(2)">Next &rarr;</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Attacker Network -->
+            <div class="wizard-step" id="wiz-step-2">
+                <h3>Attacker Network</h3>
+                <p class="muted">The network/credentials the attacker uses. Can be the same network with different credentials, or a separate SSID (e.g., a guest network).</p>
+
+                <div class="wiz-form">
+                    <div class="input-group">
+                        <label for="wiz-a-ssid">SSID</label>
+                        <input type="text" id="wiz-a-ssid" placeholder="Network name" spellcheck="false">
+                    </div>
+                    <div class="input-group">
+                        <label for="wiz-a-auth">Authentication</label>
+                        <select id="wiz-a-auth" onchange="wizAuthChanged('a')">
+                            <option value="WPA-PSK">WPA2-Personal (WPA-PSK)</option>
+                            <option value="SAE">WPA3-Personal (SAE)</option>
+                            <option value="WPA-EAP">WPA2/3-Enterprise (EAP)</option>
+                            <option value="NONE">Open (no security)</option>
+                        </select>
+                    </div>
+                    <div class="input-group wiz-cred" id="wiz-a-psk-group">
+                        <label for="wiz-a-psk">Password / PSK</label>
+                        <input type="text" id="wiz-a-psk" placeholder="Pre-shared key" spellcheck="false">
+                    </div>
+                    <div class="input-group wiz-cred hidden" id="wiz-a-eap-group">
+                        <label for="wiz-a-eap-method">EAP Method</label>
+                        <select id="wiz-a-eap-method">
+                            <option value="PEAP">PEAP</option>
+                            <option value="TLS">TLS</option>
+                            <option value="TTLS">TTLS</option>
+                        </select>
+                    </div>
+                    <div class="input-group wiz-cred hidden" id="wiz-a-identity-group">
+                        <label for="wiz-a-identity">Identity (username)</label>
+                        <input type="text" id="wiz-a-identity" placeholder="user@domain.com" spellcheck="false">
+                    </div>
+                    <div class="input-group wiz-cred hidden" id="wiz-a-eap-pass-group">
+                        <label for="wiz-a-eap-pass">EAP Password</label>
+                        <input type="text" id="wiz-a-eap-pass" placeholder="Enterprise password" spellcheck="false">
+                    </div>
+                    <div class="input-group">
+                        <label for="wiz-a-freq">Scan Frequency (optional)</label>
+                        <select id="wiz-a-freq">
+                            <option value="">Auto</option>
+                            <option value="2412">Ch 1 (2412 MHz)</option>
+                            <option value="2437">Ch 6 (2437 MHz)</option>
+                            <option value="2462">Ch 11 (2462 MHz)</option>
+                            <option value="5180">Ch 36 (5180 MHz)</option>
+                            <option value="5200">Ch 40 (5200 MHz)</option>
+                            <option value="5220">Ch 44 (5220 MHz)</option>
+                            <option value="5240">Ch 48 (5240 MHz)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="wizard-nav">
+                    <button class="btn btn-sm" onclick="wizNext(1)">&larr; Back</button>
+                    <button class="btn btn-primary" onclick="wizNext(3)">Next &rarr;</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Review & Save -->
+            <div class="wizard-step" id="wiz-step-3">
+                <h3>Review Configuration</h3>
+                <p class="muted">Check the generated client.conf below, then save.</p>
+                <pre id="wiz-preview" class="log-area" style="min-height:200px; max-height:350px;"></pre>
+                <div class="wizard-nav">
+                    <button class="btn btn-sm" onclick="wizNext(2)">&larr; Back</button>
+                    <button class="btn btn-success" onclick="wizSave()">Save &amp; Start Testing</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── WiFi Connection Modal ──────────────────────────────────────── -->
+    <div id="wifi-overlay" class="wizard-overlay hidden">
+        <div class="wizard-modal" style="width:520px;">
+            <div class="wizard-header">
+                <div class="wizard-title-row">
+                    <h2>Connect to WiFi</h2>
+                    <button class="wizard-close" onclick="wifiHideConnect()" title="Close">&times;</button>
+                </div>
+            </div>
+
+            <!-- Status bar -->
+            <div id="wifi-status" class="wifi-status">
+                <span id="wifi-status-icon" class="wifi-status-icon">&#9679;</span>
+                <span id="wifi-status-text">Ready to scan</span>
+            </div>
+
+            <!-- Network list -->
+            <div id="wifi-list-area">
+                <div class="wifi-toolbar">
+                    <span class="muted" style="font-size:0.8rem;">Select a network to connect:</span>
+                    <button class="btn btn-primary btn-sm" id="wifi-scan-btn" onclick="wifiScan()">Scan</button>
+                </div>
+                <div id="wifi-network-list" class="wifi-network-list">
+                    <p class="muted" style="padding:1.5rem; text-align:center;">Click "Scan" to find available networks</p>
+                </div>
+            </div>
+
+            <!-- Credentials form (shown after selecting a network) -->
+            <div id="wifi-cred-area" class="hidden">
+                <div class="wifi-selected-net">
+                    <span class="wifi-sel-ssid" id="wifi-sel-ssid">—</span>
+                    <span class="wifi-sel-security muted" id="wifi-sel-security">—</span>
+                    <button class="btn btn-sm" onclick="wifiBackToList()" style="margin-left:auto;">Change</button>
+                </div>
+                <div class="wiz-form" id="wifi-cred-form">
+                    <div class="input-group" id="wifi-pass-group">
+                        <label for="wifi-password">Password</label>
+                        <input type="password" id="wifi-password" placeholder="Enter network password" spellcheck="false"
+                               style="background:#161b22; border:1px solid #30363d; border-radius:4px; color:#e6edf3; padding:0.5rem 0.6rem; font-size:0.9rem;">
+                    </div>
+                    <div class="input-group hidden" id="wifi-identity-group">
+                        <label for="wifi-identity">Identity (username)</label>
+                        <input type="text" id="wifi-identity" placeholder="user@domain.com" spellcheck="false"
+                               style="background:#161b22; border:1px solid #30363d; border-radius:4px; color:#e6edf3; padding:0.5rem 0.6rem; font-size:0.9rem;">
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                    <button class="btn btn-success" id="wifi-connect-btn" onclick="wifiDoConnect()" style="flex:1;">Connect</button>
+                </div>
+            </div>
+
+            <!-- Connection progress -->
+            <div id="wifi-progress-area" class="hidden">
+                <div class="wifi-progress-steps" id="wifi-progress-steps"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+    <script src="/static/js/app.js?v=24"></script>
+</body>
+</html>

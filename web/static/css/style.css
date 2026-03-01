@@ -1,0 +1,749 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    min-height: 100vh;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+}
+
+.header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #58a6ff;
+}
+
+.subtitle {
+    font-size: 0.85rem;
+    color: #8b949e;
+}
+
+.status-badge {
+    padding: 0.3rem 0.8rem;
+    border-radius: 2rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-running { background: #238636; color: #fff; }
+.status-warning { background: #d29922; color: #000; }
+.status-stopped { background: #da3633; color: #fff; }
+.status-unknown { background: #6e7681; color: #fff; }
+.status-building { background: #d29922; color: #000; }
+
+/* Navigation */
+nav {
+    display: flex;
+    gap: 0;
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 0 2rem;
+}
+
+.nav-btn {
+    background: none;
+    border: none;
+    color: #8b949e;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.nav-btn:hover {
+    color: #e6edf3;
+}
+
+.nav-btn.active {
+    color: #58a6ff;
+    border-bottom-color: #58a6ff;
+}
+
+/* Main */
+main {
+    padding: 1.5rem 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Cards */
+.card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.card.full-width {
+    grid-column: 1 / -1;
+}
+
+.card h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #e6edf3;
+}
+
+.card h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: #c9d1d9;
+}
+
+.muted {
+    color: #8b949e;
+    font-size: 0.85rem;
+}
+
+/* Buttons */
+.btn {
+    padding: 0.5rem 1.25rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn:hover { filter: brightness(1.15); }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary { background: #238636; color: #fff; }
+.btn-success { background: #238636; color: #fff; }
+.btn-danger { background: #da3633; color: #fff; }
+.btn-warning { background: #d29922; color: #000; }
+.btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Interface selection */
+.interface-select {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 180px;
+}
+
+.input-group label {
+    font-size: 0.75rem;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.input-group input[type="text"] {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #e6edf3;
+    padding: 0.4rem 0.6rem;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+}
+
+.input-group input[type="text"]:focus {
+    outline: none;
+    border-color: #58a6ff;
+}
+
+.input-group select {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #e6edf3;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.input-group select[multiple] {
+    min-height: 80px;
+}
+
+.input-group select:focus {
+    outline: none;
+    border-color: #58a6ff;
+}
+
+/* Command grid */
+.command-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.command-item {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+.command-item p {
+    color: #8b949e;
+    font-size: 0.8rem;
+    margin-bottom: 0.75rem;
+}
+
+/* Output areas */
+.output-area {
+    margin-top: 1rem;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+.output-area pre {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    color: #7ee787;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.hidden { display: none !important; }
+
+/* Terminal */
+.terminal-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+#terminal-container {
+    width: 100%;
+    height: calc(100vh - 220px);
+    background: #000;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    padding: 4px;
+}
+
+/* Config editor */
+#config-editor {
+    width: 100%;
+    min-height: 400px;
+    background: #0d1117;
+    color: #7ee787;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+#config-editor:focus {
+    outline: none;
+    border-color: #58a6ff;
+}
+
+/* Logs */
+.log-area {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    color: #c9d1d9;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: calc(100vh - 300px);
+    min-height: 400px;
+    overflow-y: auto;
+}
+
+/* Interface / USB lists */
+.interface-item, .usb-item {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+.interface-item .if-name {
+    color: #58a6ff;
+    font-weight: 600;
+}
+
+/* Toast notifications */
+.toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.85rem;
+    z-index: 9999;
+    animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s;
+    max-width: 400px;
+}
+
+.toast-success { background: #238636; }
+.toast-error { background: #da3633; }
+.toast-info { background: #1f6feb; }
+
+@keyframes slideIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* Nav wizard button */
+.nav-wizard {
+    margin-left: auto;
+    color: #58a6ff !important;
+    border-bottom-color: transparent !important;
+}
+
+/* ── Setup Wizard ──────────────────────────────────────────────── */
+.wizard-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wizard-modal {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    width: 600px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 1.5rem 2rem;
+}
+
+.wizard-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.wizard-header h2 {
+    font-size: 1.2rem;
+    margin: 0;
+    color: #58a6ff;
+}
+
+.wizard-close {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #e6edf3;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 0.15rem 0.6rem;
+    line-height: 1;
+    transition: all 0.15s;
+}
+
+.wizard-close:hover {
+    background: #da3633;
+    border-color: #da3633;
+    color: #fff;
+}
+
+.wizard-steps {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid #30363d;
+    padding-bottom: 0.75rem;
+}
+
+.wizard-steps .step {
+    font-size: 0.8rem;
+    color: #484f58;
+    font-weight: 600;
+}
+
+.wizard-steps .step.active {
+    color: #58a6ff;
+}
+
+.wizard-step {
+    display: none;
+}
+
+.wizard-step.active {
+    display: block;
+}
+
+.wizard-step h3 {
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+    color: #e6edf3;
+}
+
+.wiz-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.wiz-form .input-group select,
+.wiz-form .input-group input[type="text"] {
+    width: 100%;
+}
+
+.wiz-scan-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    margin-bottom: 0.25rem;
+}
+
+#wiz-scan-list {
+    background: #0d1117;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    padding: 0.25rem;
+}
+
+#wiz-scan-list option:hover,
+#wiz-scan-list option:checked {
+    background: #1f6feb;
+}
+
+.wizard-nav {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #30363d;
+}
+
+/* Pentest info grid */
+.pt-info-grid {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.pt-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.pt-label {
+    font-size: 0.7rem;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.pt-value {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    color: #7ee787;
+}
+
+/* Pentest client table */
+.pt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.pt-table th {
+    background: #0d1117;
+    color: #8b949e;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #30363d;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+}
+
+.pt-table td {
+    padding: 0.4rem 0.75rem;
+    border-bottom: 1px solid #21262d;
+    color: #e6edf3;
+}
+
+.pt-table code {
+    color: #8b949e;
+    font-size: 0.75rem;
+}
+
+.pt-table tr:hover td {
+    background: #161b22;
+}
+
+/* Collapsible sections */
+.section-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+
+.section-toggle:hover {
+    color: #58a6ff;
+}
+
+.collapse-arrow {
+    font-size: 0.8rem;
+    color: #484f58;
+    margin-left: 0.5rem;
+}
+
+/* ── WiFi Connect Modal ────────────────────────────────────────── */
+.wifi-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.wifi-status-icon {
+    font-size: 0.6rem;
+}
+
+.wifi-status-icon.scanning { color: #d29922; animation: pulse 1s infinite; }
+.wifi-status-icon.connected { color: #238636; }
+.wifi-status-icon.error { color: #da3633; }
+.wifi-status-icon.ready { color: #8b949e; }
+.wifi-status-icon.connecting { color: #58a6ff; animation: pulse 1s infinite; }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.wifi-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.wifi-network-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    background: #0d1117;
+}
+
+.wifi-net-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid #21262d;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.wifi-net-item:last-child {
+    border-bottom: none;
+}
+
+.wifi-net-item:hover {
+    background: #161b22;
+}
+
+.wifi-net-item.selected {
+    background: #1f6feb22;
+    border-left: 3px solid #58a6ff;
+}
+
+.wifi-net-signal {
+    width: 24px;
+    text-align: center;
+    font-size: 1rem;
+}
+
+.wifi-net-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.wifi-net-ssid {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #e6edf3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wifi-net-detail {
+    font-size: 0.75rem;
+    color: #8b949e;
+    display: flex;
+    gap: 0.75rem;
+}
+
+.wifi-net-lock {
+    font-size: 0.75rem;
+    color: #d29922;
+}
+
+.wifi-net-open {
+    font-size: 0.75rem;
+    color: #238636;
+}
+
+.wifi-selected-net {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: #0d1117;
+    border: 1px solid #1f6feb;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+}
+
+.wifi-sel-ssid {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #58a6ff;
+}
+
+.wifi-sel-security {
+    font-size: 0.8rem;
+}
+
+.wifi-progress-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.75rem;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+}
+
+.wifi-prog-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #8b949e;
+}
+
+.wifi-prog-step.active {
+    color: #58a6ff;
+}
+
+.wifi-prog-step.done {
+    color: #7ee787;
+}
+
+.wifi-prog-step.fail {
+    color: #da3633;
+}
+
+.wifi-prog-icon {
+    width: 16px;
+    text-align: center;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #484f58; }
